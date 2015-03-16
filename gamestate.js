@@ -2,7 +2,7 @@
 
 (function(exports){
 
-var NUM_TYPES = 1;
+var NUM_TRANSACTION_TYPES = 1;
 var TYPES = [];
 
 exports.TYPE_TEST = {
@@ -23,9 +23,27 @@ function Transaction(pre, post, type) {
 	this.type = type;
 }
 
-function GameState() {
-  this.test = 0;
+function Rock(type) {
+	this.type = type;
+	this.rubbleLevel = 0;
+	this.currentlyDrilled = false;
+	this.oreGenerated = 0;
+	this.crystalsGenerated = 0;
 }
+
+function GameState(r, c, rockinfo) {
+  this.rows = r;
+	this.cols = c;
+	this.grid = rockinfo;
+	for (var i = 0; i < this.rows; i++) {
+		for (var j = 0; j < this.rows; j++) {
+			var type = rockinfo[i][j];
+			rockinfo[i][j] = new Rock(type);
+		}
+	}
+}
+
+exports.gridDeltas = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [0, 1], [-1, 0], [0, -1]];
 
 exports.applyTransactions = function(state, transactionList) {
 	console.log("applying transactions");
@@ -44,8 +62,8 @@ exports.applyTransactions = function(state, transactionList) {
 	return true;
 }
 
-exports.newGameState = function() {
-  return new GameState();
+exports.newGameState = function(level) {
+  return new GameState(level.numRows, level.numCols, level.rocktypes);
 }
 
 exports.newTransaction = function(pre, post, type) {

@@ -7,6 +7,7 @@ var app = http.createServer(function(req, res) {
 });
 
 var io = require('socket.io').listen(app);
+var fs = require('fs');
 var gamestate = require("./gamestate.js");
 
 var games = {};
@@ -52,29 +53,42 @@ Client.prototype.getPing = function() {
 
 var nextGameId = 0;
 
-function Game(maxPlayers, name) {
-	if (maxPlayers < 1) return null;
+function Game(name, level) {
+	if (level.playerInfo.num < 1) return null;
 	this.id = nextGameId++;
 	this.name = name;
 	games[""+this.id] = this;
-	this.players = [];
-	this.maxPlayers = maxPlayers;
-	this.state = gamestate.newGameState();
+	this.maxPlayers = level.playerInfo.num;
+	this.players = new Array(this.maxPlayers);
+	this.currentPlayers = 0;
+	this.state = gamestate.newGameState(level);
+	this.starts = level.playerInfo.starts;
 	this.nextSequenceNumber = 0;
 }
 
 Game.prototype.addPlayer = function(client) {
-	if (this.players.length == this.maxPlayers) {
+	if (this.currentPlayers == this.maxPlayers) {
 		console.log("not adding player " + client.id + " to game " + this.id + ", already full.");
-		return false;
+		return -1;
 	}
-	this.players.push(client);
+	var index = -1;
+	for (var i = 0; i < this.maxPlayers; i++) {
+		if (this.players[i] == undefined) {
+			index = i;
+			break;
+		}
+	}
+	if (index == -1) {
+		console.log("players array is corrupt......");
+		return -1;
+	}
+	this.players[index] = client;
 	console.log("adding player " + client.id + " to game " + this.id + ".");
-	return true;
+	return index;
 }
 
 Game.prototype.removePlayer = function(client) {
-	if (this.players.length == 0) {
+	if (this.currentPlayers == 0) {
 		return false;
 	}
 	var index = -1;
@@ -87,13 +101,15 @@ Game.prototype.removePlayer = function(client) {
 	if (index == -1) {
 		console.log("client " + client.id + " not in game " + this.id + ", not removing.");
 		return false;
-	} else {
-		console.log("removing client " + client.id + " from game " + this.id + ".");
-		this.players.splice(index, 1);
-		return true;
 	}
+	console.log("removing client " + client.id + " from game " + this.id + ".");
+	this.players[index] = undefined;
+	return true;
 }
 
+
+
+// respond to clients
 io.sockets.on('connection', function(socket) {
 	// TODO assign client number
 
@@ -116,10 +132,16 @@ io.sockets.on('connection', function(socket) {
 			var name = data.name;
 			console.log(data);
 			if (!name) name = "you didn't name your game l3l.";
-			var game = new Game(2, name); // TODO better way to do level loading/number of players
-			game.addPlayer(thisclient);
-			thisclient.gameId = game.id;
-			socket.emit("joinedgame", {id: game.id, state: game.state});
+			var level = loadLevel(levelList[0]);
+			if (!level) {
+				console.log("loading level " + levelList[0] + " failed..");
+				socket.emit("joinedgame", {error: "invalid level file.."});
+			} else {
+				var game = new Game(name, level);
+				var index = game.addPlayer(thisclient);
+				thisclient.gameId = game.id;
+				socket.emit("joinedgame", {id: game.id, name: game.name, state: game.state, start:game.starts[index]});
+			}
 		}
 	});
 
@@ -135,9 +157,9 @@ io.sockets.on('connection', function(socket) {
 			var game = getGame(data.id);
 			thisclient.gameId = data.id;
 			if (game) {
-				var success = game.addPlayer(thisclient);
-				if (success) {
-					socket.emit("joinedgame", {id: game.id, state:game.state});
+				var index = game.addPlayer(thisclient);
+				if (index != -1) {
+					socket.emit("joinedgame", {id: game.id, name: game.name, state:game.state, start:game.starts[index]});
 				} else {
 					socket.emit("joinedgame", {error: "game " + data.gameId + " full!"});
 				}
@@ -166,7 +188,9 @@ io.sockets.on('connection', function(socket) {
 				var SN = game.nextSequenceNumber++;
 				var message = {gameId:data.gameId, SN: SN, transactionList:data.transactionList, delay:0}; // TODO estimate message delay
 				for (var i = 0; i < game.players.length; i++) {
-					game.players[i].socket.emit("processmutation", message);
+					if (game.players[i] != undefined) {
+						game.players[i].socket.emit("processmutation", message);
+					}
 				}
 			} else {
 				console.log("transaction failed, not echoing to clients");
@@ -188,5 +212,71 @@ io.sockets.on('connection', function(socket) {
 		}
   });
 });
+
+var levelList = [];
+
+function loadLevel(name) {
+	// check that everything is there and that it is valid
+	console.log("loading level " + name);
+	level = JSON.parse(fs.readFileSync("levels/"+name, "utf8"));
+	console.log(level);
+	console.log(level.numRows);
+	console.log(level.numCols);
+	console.log(level.playerInfo);
+	console.log(level.rocktypes);
+	if (!level.numRows || !level.numCols || !level.playerInfo || !level.rocktypes) {
+		console.log("level doesn't have top level properties..");
+		return null;
+	}
+	if (!level.playerInfo.num || level.playerInfo.starts.length != level.playerInfo.num) {
+		console.log("level playerInfo inconsistent");
+		return null;
+	}
+	
+	var players = level.playerInfo.starts;
+	for (var i = 0; i < players.length; i++) {
+		if (players[i].r == undefined || players[i].c == undefined) {
+			console.log("player start " + i + " doesn't have r and c.");
+			return null;
+		}
+		if (players[i].r < 0 || players[i].r >= level.numRows) {
+			console.log("player start " + i + " has invalid row.");
+			return null;
+		}
+		if (players[i].c < 0 || players[i].c >= level.numCols) {
+			console.log("player start " + i + " has invalid column.");
+			return null;
+		}
+	}
+
+	if (level.rocktypes.length != level.numRows) {
+		console.log("rocktypes has incorrect number of rows.");
+		return null;
+	}
+	for (var i = 0; i < level.numRows; i++) {
+		if (level.rocktypes[i].length != level.numCols) {
+			console.log("rocktypes row " + i + " has incorrect number of columns");
+			return null;
+		}
+		for (var j = 0; j < level.numCols; j++) {
+			// TODO check validity of rock type at [i][j]
+		}
+	}
+
+	return level;
+}
+	
+function doStartup() {
+	// load level list
+	var fnames = fs.readdirSync("levels");
+	for (var i = 0; i < fnames.length; i++) {
+		levelList.push(fnames[i]);
+	}
+	console.log(levelList);
+
+	// load resources? TODO
+}
+
+doStartup();
 
 app.listen(3000);
