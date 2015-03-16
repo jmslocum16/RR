@@ -7,6 +7,7 @@ var app = http.createServer(function(req, res) {
 });
 
 var io = require('socket.io').listen(app);
+var gamestate = require("./gamestate.js");
 
 var games = {};
 
@@ -24,11 +25,13 @@ var maxPingCount = 10;
 
 var nextClientId = 0;
 
-function Client() {
+
+function Client(sock) {
 	this.id = nextClientId++;
 	clients[""+this.id] = this;
 	this.gameId = -1;
 	this.pings = [];
+	this.socket = sock;
 }
 
 function getClient(clientId) {
@@ -49,14 +52,6 @@ Client.prototype.getPing = function() {
 
 var nextGameId = 0;
 
-function GameState() {
-	this.test = 0;
-}
-
-function getNewGameState() {
-	return new GameState();
-}
-
 function Game(maxPlayers, name) {
 	if (maxPlayers < 1) return null;
 	this.id = nextGameId++;
@@ -64,7 +59,8 @@ function Game(maxPlayers, name) {
 	games[""+this.id] = this;
 	this.players = [];
 	this.maxPlayers = maxPlayers;
-	this.state = getNewGameState();
+	this.state = gamestate.newGameState();
+	this.nextSequenceNumber = 0;
 }
 
 Game.prototype.addPlayer = function(client) {
@@ -101,7 +97,7 @@ Game.prototype.removePlayer = function(client) {
 io.sockets.on('connection', function(socket) {
 	// TODO assign client number
 
-	var thisclient = new Client();
+	var thisclient = new Client(socket);
 
 	var gameIds = [];
 	for (var gid in games) {
@@ -129,7 +125,6 @@ io.sockets.on('connection', function(socket) {
 
 	// join existing game
 	socket.on("joingame", function(data) {
-		console.log(data);
 		if (thisclient.gameId != -1) {
 			console.log("client " + thisclient.id + " tried to join another game...");
 			socket.emit("joinedgame", {error: "already in game " + thisclient.gameid + "!"});
@@ -147,12 +142,37 @@ io.sockets.on('connection', function(socket) {
 					socket.emit("joinedgame", {error: "game " + data.gameId + " full!"});
 				}
 			} else {
-				console.log("client trying to join invalid game id " + data.gameId);
-				socket.emit("joinedgame", {error: "invalid game id " + data.gameId});
+				console.log("client trying to join invalid game id " + data.id);
+				socket.emit("joinedgame", {error: "invalid game id " + data.id});
 			}
 		}
 	});
 	
+	// mutate game property
+	socket.on("mutategame", function(data) {
+		if (data.gameId == undefined) {
+			console.log("client passed no gameid to mutate..");
+		} else if (thisclient.gameId != data.gameId) {
+			console.log("client trying to mutate incorrect game id " + data.gameId);
+		} else if (!getGame(data.gameId)) {
+			console.log("client trying to mutate non-existing game");
+		} else if (!data.transactionList) {
+			console.log("ignoring empty transaction from client " + thisclient.id);
+		} else {
+			// try to process transaction
+			var game = getGame(data.gameId);
+			var success = gamestate.applyTransactions(game.state, data.transactionList);
+			if (success) {
+				var SN = game.nextSequenceNumber++;
+				var message = {gameId:data.gameId, SN: SN, transactionList:data.transactionList, delay:0}; // TODO estimate message delay
+				for (var i = 0; i < game.players.length; i++) {
+					game.players[i].socket.emit("processmutation", message);
+				}
+			} else {
+				console.log("transaction failed, not echoing to clients");
+			}
+		}
+	});
 
 	// leave game
 	socket.on('disconnect', function () {
