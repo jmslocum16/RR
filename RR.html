@@ -1,13 +1,29 @@
-<doctype html>
 <html>
-    <head>
-        <script src='http://code.jquery.com/jquery-2.0.3.min.js'></script>
-        <script src='http://localhost:3000/socket.io/socket.io.js'></script>
-				<script src='message.js'></script>
-				<script src='messagequeue.js'></script>
-        <script src='RR-client.js'></script>
-    </head>
-    <body>
-        <ul id='messages'></ul>
-    </body>
+	<head>
+		<!-- jquery -->
+		<script src='http://code.jquery.com/jquery-2.0.3.min.js'></script>
+		<!-- bootstrap -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+		<!-- socket.io -->
+		<script src='http://localhost:3000/socket.io/socket.io.js'></script>
+		<!-- game logic -->
+		<script src='client.js'></script>
+	</head>
+	<body>
+		<div id="pregame-div" style="display:none">
+			<span>
+				<button class="btn btn-default" onclick="newGame()">New Game</button>
+				<input type="text" class="form-control" id="newgame-name" placeholder="Game Name">
+			</span>
+			<button class="btn btn-default" onclick="joinGame()">Join Game</button>
+			<ul id="gameids"></ul>
+			Pregame-Div
+		</div>
+		<div id="game-div" style="display:none">
+			Game-Div
+		</div>
+		<ul id='messages'></ul>
+	</body>
 </html>
