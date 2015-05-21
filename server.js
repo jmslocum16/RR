@@ -83,6 +83,7 @@ Game.prototype.addPlayer = function(client) {
 		return -1;
 	}
 	this.players[index] = client;
+	this.currentPlayers++;
 	console.log("adding player " + client.id + " to game " + this.id + ".");
 	return index;
 }
@@ -104,6 +105,7 @@ Game.prototype.removePlayer = function(client) {
 	}
 	console.log("removing client " + client.id + " from game " + this.id + ".");
 	this.players[index] = undefined;
+    this.currentPlayers--;
 	return true;
 }
 
@@ -205,7 +207,7 @@ io.sockets.on('connection', function(socket) {
 			console.log("client was in game " + thisclient.gameId);
 			var game = getGame(thisclient.gameId);
 			var success = game.removePlayer(thisclient);
-			if (success && game.players.length == 0) {
+			if (success && game.currentPlayers == 0) {
 				console.log("deleting empty game " + game.id);
 				deleteGame(game.id);
 			}
