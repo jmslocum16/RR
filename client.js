@@ -22,7 +22,10 @@ function initVisible() {
 	}
 }
 
-function floodFillVisible(startR, startC) {
+var startR;
+var startC;
+
+function floodFillVisible() {
 	var visited = new Array(gameState.rows);
 	for (var i = 0; i < gameState.rows; i++) {
 		visited[i] = new Array(gameState.cols);
@@ -87,6 +90,18 @@ function displayGamesMenu(gamesList) {
 	}
 }
 
+function handleCanvasClick(x, y) {
+	var i = Math.floor(y / cellSize);
+	var j = Math.floor(x / cellSize);
+	var oldRockType = gameState.grid[i][j].type;
+	if (!visible[i][j] || oldRockType == 0 || oldRockType == 1) {
+		return;
+	}
+	console.log("(" + i + ", " + j + ")");
+	var t = gamestate.newGridTransaction(i, j, oldRockType, 1, gamestate.TYPE_CHANGE_ROCK_TYPE);
+	sendMutations([t]);
+}
+
 function hideGamesMenu() {
 	$("#pregame-div").hide();
 }
@@ -95,8 +110,10 @@ function showGameUI(name) {
 	$("#game-name-heading").html(name);
 	$("#game-div").show();
 	canvas = document.getElementById("myCanvas");
-	console.log(canvas);
 	ctx = canvas.getContext("2d");
+	$("#canvasdiv").click(function(evt) {
+		handleCanvasClick(evt.offsetX, evt.offsetY);
+	});
 }
 
 function joinGame() {
@@ -112,6 +129,13 @@ function newGame() {
 	socket.emit("newgame", {name:name});
 }
 
+function updateLocal() {
+	if (!gameState.visibleValid) {
+		floodFillVisible();
+		visibleValid = true;
+	}	
+}
+
 // rendering stuffs
 var canvas;
 var ctx;
@@ -119,8 +143,8 @@ var ctx;
 // styles
 var invisibleStyle = "#000000";
 var emptyStyle = "#FFFFFF";
-var drillableStyle = "#666666";
-var solidStyle = "#AAAAAA";
+var solidStyle = "#666666";
+var drillableStyle = "#AAAAAA";
 
 function render() {
 	// draw the game state on the canvas
@@ -147,6 +171,7 @@ function render() {
 
 function mainLoop() {
 	processMessages();
+	updateLocal();
 	render();
 	setTimeout(mainLoop, 1);
 }
@@ -180,7 +205,9 @@ socket.on("joinedgame", function(data) {
 		currentGameId = data.id;
 		gameState = data.state;
 		initVisible();
-		floodFillVisible(data.start.r, data.start.c);
+		startR = data.start.r;
+		startC = data.start.c;
+		floodFillVisible();
 		hideGamesMenu();
 		showGameUI(data.name);
 		mainLoop();
