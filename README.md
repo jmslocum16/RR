@@ -5,13 +5,13 @@ nodejs rock raiders
 
 # Setup
 
-Make sure node and npm (node package manager) are installed.
+Have node.js and npm installed.
 
-install socket.io in the working directory ("npm install socket.io")
+run "npm install" in the base directory.
 
 # run
 
-To run the server, run "node server.js" in the working directory.
+To run the server, run "npm start" in the base directory.
 
 To run the client, open up RR.html in your favorite web browser.
 

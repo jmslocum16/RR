@@ -1,0 +1,8 @@
+{
+  "name": "RR",
+  "version": "0.0.1",
+  "description": "Rock Raiders-like multiplayer mining game",
+  "dependencies": {
+    "socket.io": "^1.3.5"
+  }
+}
