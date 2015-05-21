@@ -120,7 +120,9 @@ io.sockets.on('connection', function(socket) {
 	var gameIds = [];
 	for (var gid in games) {
 		game = getGame(gid);
-		gameIds.push({id: game.id, name:game.name});
+		if (game.currentPlayers < game.maxPlayers) {
+			gameIds.push({id: game.id, name:game.name});
+		}
 	}
 	socket.emit("start", {id: thisclient.id, games:gameIds});
 
