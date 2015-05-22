@@ -10,6 +10,7 @@ var currentGameName;
 var gameState;
 var visible;
 
+
 var cellSize = 32;
 
 function initVisible() {
@@ -114,6 +115,7 @@ function showGameUI(name) {
 	$("#canvasdiv").click(function(evt) {
 		handleCanvasClick(evt.offsetX, evt.offsetY);
 	});
+	resizeCanvas();
 }
 
 function joinGame() {
@@ -140,6 +142,19 @@ function updateLocal() {
 var canvas;
 var ctx;
 
+window.addEventListener('resize', resizeCanvas, false);
+
+function resizeCanvas() {
+	if (canvas) {
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+	}
+	if (gameState) {
+		gameState.visibleValid = false;
+	}
+}
+
+
 // styles
 var invisibleStyle = "#000000";
 var emptyStyle = "#FFFFFF";
@@ -149,6 +164,8 @@ var drillableStyle = "#AAAAAA";
 function render() {
 	// draw the game state on the canvas
 	// draw grid first
+	ctx.fillStyle = invisibleStyle;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
 	for (var i = 0; i < gameState.rows; i++) {
 		for (var j = 0; j < gameState.cols; j++) {
 			// set style
