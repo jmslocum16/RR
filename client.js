@@ -10,8 +10,56 @@ var currentGameName;
 var gameState;
 var visible;
 
+// input
+
+var moveLeft = false;
+var moveRight = false;
+var moveUp = false;
+var moveDown = false;
+
+window.addEventListener("keydown", handleKeyDown, false);
+window.addEventListener("keyup", handleKeyUp, false);
+ 
+function handleKeyDown(e) {
+	switch(e.keyCode) {
+		case 37:
+			moveLeft = true;
+			break;
+		case 38:
+			moveUp = true;
+			break;
+		case 39:
+			moveRight = true;
+			break;
+		case 40:
+			moveDown = true;
+			break;
+	}
+}
+
+function handleKeyUp(e) {
+	switch(e.keyCode) {
+		case 37:
+			moveLeft = false;
+			break;
+		case 38:
+			moveUp = false;
+			break;
+		case 39:
+			moveRight = false;
+			break;
+		case 40:
+			moveDown = false;
+			break;
+	}
+}
+
+
+
 
 var cellSize = 48;
+var levelWidth;
+var levelHeight;
 var minimapCellWidth = 0;
 var minimapCellHeight = 0;
 
@@ -29,6 +77,7 @@ var startR;
 var startC;
 
 function redoVisible() {
+	needBackgroundUpdate = true;
 	// flood fill
 	var visited = new Array(gameState.rows);
 	for (var i = 0; i < gameState.rows; i++) {
@@ -131,13 +180,45 @@ function showGameUI(name) {
 			j = Math.floor(minimapOffsetX / minimapCellWidth);
 		} else {
 			// click on main map
-			i = Math.floor(evt.offsetY / cellSize);
-			j = Math.floor(evt.offsetX / cellSize);
+			i = Math.floor((viewportY + evt.offsetY) / cellSize);
+			j = Math.floor((viewportX + evt.offsetX) / cellSize);
 		}
 		handleCanvasClick(i, j);
 		
 	});
 	resizeCanvas();
+	centerViewport(startC * cellSize, startR * cellSize);
+}
+
+var viewportX = 0;
+var viewportY = 0;
+
+function centerViewport(x, y) {
+	viewportX = x - Math.floor(canvas.width / 2);
+	viewportY = y - Math.floor(canvas.height / 2);
+	clampViewport();
+}
+
+function translateViewport(dx, dy) {
+	viewportX += dx;
+	viewportY += dy;
+	clampViewport();
+}
+
+function clampViewport() {
+	if (viewportX + canvas.width > levelWidth) {
+		viewportX = levelWidth - canvas.width;
+	}
+	if (viewportY + canvas.height > levelHeight) {
+		viewportY = levelHeight - canvas.height;
+	}
+	if (viewportX < 0) {
+		viewportX = 0;
+	}
+	if (viewportY < 0) {
+		viewportY = 0;
+	}
+
 }
 
 function joinGame() {
@@ -169,6 +250,8 @@ var mapCanvas;
 var mapCtx;
 var minimapX;
 var minimapY;
+var viewportX;
+var viewportY;
 
 window.addEventListener('resize', resizeCanvas, false);
 
@@ -182,15 +265,26 @@ function resizeCanvas() {
 			minimapCanvas.height = minimapCellHeight * gameState.rows;
 		}
 	}
-	if (canvas && minimapCanvas && mapCanvas) {
+	if (canvas && minimapCanvas) {
 		canvas.width = window.innerWidth;
 		canvas.height = window.innerHeight;
-		mapCanvas.width = canvas.width;
-		mapCanvas.height = canvas.height;
 		// place minimap in bottom left
 		minimapX = canvas.width - minimapCanvas.width;
 		minimapY = 0;
 	}
+}
+
+viewportMoveSpeed = 200;
+
+function moveViewport(dt) {
+	var d = viewportMoveSpeed * dt / 1000.0;
+	var dx = 0;
+	var dy = 0;
+	if (moveLeft) dx -= d;
+	if (moveRight) dx += d;
+	if (moveUp) dy -= d;
+	if (moveDown) dy += d;
+	translateViewport(dx, dy);
 }
 
 
@@ -199,12 +293,13 @@ var invisibleStyle = "#000000";
 var emptyStyle = "#FFFFFF";
 var solidStyle = "#666666";
 var drillableStyle = "#AAAAAA";
+var needBackgroundUpdate = true;
 
 function renderBackground() {
 	// draw the game state on the canvas
 	// draw grid first
-	ctx.fillStyle = invisibleStyle;
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	mapCtx.fillStyle = invisibleStyle;
+	mapCtx.fillRect(0, 0, canvas.width, canvas.height);
 	minimapCtx.fillStyle = invisibleStyle;
 	minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
 	for (var i = 0; i < gameState.rows; i++) {
@@ -213,17 +308,17 @@ function renderBackground() {
 			if (!visible[i][j]) {
 				continue;
 			} else if (gameState.grid[i][j].type == 0) {
-				ctx.fillStyle = solidStyle;
+				mapCtx.fillStyle = solidStyle;
 			} else if (gameState.grid[i][j].type == 1) {
-				ctx.fillStyle = emptyStyle;
+				mapCtx.fillStyle = emptyStyle;
 			} else if (gameState.grid[i][j].type == 3) {
-				ctx.fillStyle = drillableStyle;
+				mapCtx.fillStyle = drillableStyle;
 			} else {
 				console.log("weirdass type at " + i + ", " + j + ": " + gameState.grid[i][j].type);
 			}
 			// draw rect
-			ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
-			minimapCtx.fillStyle = ctx.fillStyle;
+			mapCtx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+			minimapCtx.fillStyle = mapCtx.fillStyle;
 			minimapCtx.fillRect(j * minimapCellWidth, i * minimapCellHeight, minimapCellWidth, minimapCellHeight);
 		}
 	}
@@ -237,8 +332,22 @@ function drawLine(x, y, x2, y2) {
 }
 
 function renderMain() {
-	// draw background images to screen
-	ctx.drawImage(canvas, 0, 0);
+
+	// draw background
+	ctx.fillStyle = invisibleStyle;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.drawImage(mapCanvas, Math.floor(viewportX), Math.floor(viewportY), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+
+	// draw dynamic
+	// TODO
+}
+
+function viewToMiniX(x) {
+	return x * minimapCanvas.width / levelWidth;
+}
+
+function viewToMiniY(y) {
+	return y * minimapCanvas.height / levelHeight;
 }
 
 function renderMinimap() {
@@ -247,6 +356,11 @@ function renderMinimap() {
 
 	// draw dynamic stuff
 	// TODO
+
+	// draw viewport
+	ctx.strokeStyle = "#FFFF00";
+	ctx.lineWidth = 1;
+	ctx.strokeRect(minimapX + viewToMiniX(viewportX), minimapY + viewToMiniY(viewportY), viewToMiniX(canvas.width), viewToMiniY(canvas.height));
 	
 	// draw outline
 	ctx.strokeStyle = "#FFFFFF";
@@ -256,18 +370,32 @@ function renderMinimap() {
 }
 
 function render() {
-	if (!gameState.visibleValid) {
+	if (needBackgroundUpdate) {
 		renderBackground();
+		needBackgroundUpdate = false;
 	}
 	renderMain();
 	renderMinimap();
 }
 
+var lastts = -1;
+
 function mainLoop() {
+	if (lastts == -1) {
+		lastts = new Date().getTime();
+	}
+
+	var curtime = new Date().getTime();
+	var msdif = curtime - lastts;
+	lastts = curtime;
+
+	moveViewport(msdif);
+	
 	processMessages();
 	updateLocal();
 	render();
-	setTimeout(mainLoop, 1);
+
+	setTimeout(mainLoop, 10);
 }
 
 // network stuffs...
@@ -301,9 +429,15 @@ socket.on("joinedgame", function(data) {
 		initVisible();
 		startR = data.start.r;
 		startC = data.start.c;
+		levelWidth = gameState.cols * cellSize;
+		levelHeight = gameState.rows * cellSize;
 		redoVisible();
 		hideGamesMenu();
 		showGameUI(data.name);
+		if (mapCanvas) {
+			mapCanvas.width = levelWidth;
+			mapCanvas.height = levelHeight;
+		}
 		mainLoop();
 	}
 });
