@@ -24,11 +24,16 @@
 		</div>
 		<div id="game-div" style="display:none">
 			<div id="canvasdiv">
-				<canvas id="myCanvas" width="640" height="640" style="border:1px solid #c3c3c3;">
+				<canvas id="mainCanvas" width="640" height="640">
 					Your browser does not support the HTML5 canvas tag.
 				</canvas>
 			</div>
 		</div>
-		<ul id='messages'></ul>
+		<div style="display:none">
+			<canvas id="minimapCanvas" width="256" height="256"></canvas>
+		</div>
+		<div style="display:none">
+			<canvas id="mapCanvas" width="640" height="640"></canvas>
+		</div>
 	</body>
 </html>
