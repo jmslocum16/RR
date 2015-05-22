@@ -11,7 +11,7 @@ var gameState;
 var visible;
 
 
-var cellSize = 32;
+var cellSize = 48;
 var minimapCellWidth = 0;
 var minimapCellHeight = 0;
 
