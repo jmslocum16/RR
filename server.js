@@ -63,7 +63,38 @@ function Game(name, level) {
 	this.currentPlayers = 0;
 	this.state = gamestate.newGameState(level);
 	this.starts = level.playerInfo.starts;
+	this.writeTransactionNumber = 0;
+	this.readTransactionNumber = 0;
 	this.nextSequenceNumber = 0;
+	this.transactionQueue = {};
+	this.processingTransactions = false;
+}
+
+Game.prototype.addMessage = function(tlist) {
+	var key = "" + this.writeTransactionNumber;
+	this.transactionQueue[key] = tlist;
+	return this.writeTransactionNumber++;
+}
+
+Game.prototype.processTransactions = function() {
+	this.processingTransactions = true;
+	while (this.readTransactionNumber < this.writeTransactionNumber) {
+		var key = "" + this.readTransactionNumber;
+		var tlist = this.transactionQueue[key];
+		if (gamestate.applyTransactions(this.state, tlist)) {
+			var SN = this.nextSequenceNumber++;
+			// TODO estimate message delay
+			var message = {gameId: this.id, SN: SN, transactionList:tlist, delay:0};
+			for (var i = 0; i < this.players.length; i++) {
+				if (this.players[i] != undefined) {
+					this.players[i].socket.emit("processmutation", message);
+				}
+			}
+		}
+		delete this.transactionQueue[key];
+		this.readTransactionNumber++;
+	}
+	this.processingTransactions = false;
 }
 
 Game.prototype.addPlayer = function(client) {
@@ -187,17 +218,9 @@ io.sockets.on('connection', function(socket) {
 		} else {
 			// try to process transaction
 			var game = getGame(data.gameId);
-			var success = gamestate.applyTransactions(game.state, data.transactionList);
-			if (success) {
-				var SN = game.nextSequenceNumber++;
-				var message = {gameId:data.gameId, SN: SN, transactionList:data.transactionList, delay:0}; // TODO estimate message delay
-				for (var i = 0; i < game.players.length; i++) {
-					if (game.players[i] != undefined) {
-						game.players[i].socket.emit("processmutation", message);
-					}
-				}
-			} else {
-				console.log("transaction failed, not echoing to clients");
+			game.addMessage(data.transactionList);
+			if (!game.processingTransactions) {
+				game.processTransactions();
 			}
 		}
 	});
