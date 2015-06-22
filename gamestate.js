@@ -28,11 +28,91 @@ exports.TYPE_CHANGE_ROCK_TYPE = {
 		state.grid[r][c].type = value;
 		if (value == 1) {
 			state.visibleValid = false;
+			// create ore/crystals
+			// TODO read in info, right now make 2 ore 1 crystal
+			exports.TYPE_CREATE_CRYSTAL_AT.POST(state, r, c);
+			for (var i = 0; i < 2; i++)
+				exports.TYPE_CREATE_ORE_AT.POST(state, r, c);
 		}
 	}
 };
 
 TYPES[exports.TYPE_CHANGE_ROCK_TYPE.ID] = exports.TYPE_CHANGE_ROCK_TYPE;
+
+exports.TYPE_MODIFY_ORE_COUNT = {
+	ID: 2,
+	PRE: function(state, value) {
+		return true;
+	}, // don't want people returning ore to not get counted
+	POST: function(state, value) {
+		state.ore += value;
+	}
+};
+
+TYPES[exports.TYPE_MODIFY_ORE_COUNT.ID] = exports.TYPE_MODIFY_ORE_COUNT;
+
+exports.TYPE_MODIFY_CRYSTAL_COUNT = {
+	ID: 3,
+	PRE: function(state, value) {
+		return true;
+	}, // same as above
+	POST: function(state, value) {
+		state.crystals += value;
+	}
+};
+
+TYPES[exports.TYPE_MODIFY_CRYSTAL_COUNT] = exports.TYPE_MODIFY_CRYSTAL_COUNT;
+
+exports.TYPE_CREATE_ORE_AT = {
+	ID: 4,
+	PRE: function(state, r, c, value) {
+		return true;
+	}, // never a reason you can't create an ore somewhere (yet?)
+	POST: function(state, r, c, value) {
+		var o = new Ore(r, c, state);
+		state.freeOre[""+o.id] = o;
+	}
+};
+
+TYPES[exports.TYPE_CREATE_ORE_AT.id] = exports.TYPE_CREATE_ORE_AT; 
+
+exports.TYPE_CREATE_CRYSTAL_AT = {
+	ID: 5,
+	PRE: function(state, r, c, value) {
+		return true;
+	},
+	POST: function(state, r, c, value) {
+		var c = new Crystal(r, c, state);
+		state.freeCrystals[""+c.id] = c;
+	}
+};
+
+TYPES[exports.TYPE_CREATE_CRYSTAL_AT.id] = exports.TYPE_CREATE_CRYSTAL_AT;
+
+exports.TYPE_DESTROY_ORE = {
+	ID: 6,
+	PRE: function(state, value) {
+		return state.freeOre[""+value];
+	},
+	POST: function(state, value) {
+		delete state.freeOre[""+value];
+	}
+};
+
+TYPES[exports.TYPE_DESTROY_ORE.id] = exports.TYPE_DESTROY_ORE;
+
+
+exports.TYPE_DESTROY_CRYSTAL = {
+	ID: 7,
+	PRE: function(state, value) {
+		return state.freeCrystals[""+value];
+	},
+	POST: function(state, value) {
+		delete state.freeCrystals[""+value];
+	}
+};
+
+TYPES[exports.TYPE_DESTROY_CRYSTAL.id] = exports.TYPE_DESTROY_CRYSTAL;
 
 // Transaction object definitions
 
@@ -101,6 +181,34 @@ function Rock(type) {
 	this.crystalsGenerated = 0;
 }
 
+function Ore(r, c, state) {
+	this.x = state.cellSize * c + exports.randomNext(state.random, state.cellSize);	
+	this.y = state.cellSize * r + exports.randomNext(state.random, state.cellSize);
+	this.id = state.nextOreId++;
+}
+
+
+function Crystal(r, c, state) {
+	this.x = state.cellSize * c + exports.randomNext(state.random, state.cellSize);	
+	this.y = state.cellSize * r + exports.randomNext(state.random, state.cellSize);
+	this.id = state.nextCrystalId++;
+}
+
+// wrote my own shitty-ass random because existing ones suck and i wanted it to be determininstic across computers
+function Random() {
+	this.max = 1000000009;
+	this.add = 573579630;
+	this.xor = 735928559;
+	this.seed = 0;
+}
+
+exports.randomNext = function(r, limit) {
+	r.seed += r.add;
+	r.seed ^= r.xor;
+	r.seed %= r.max;
+	return r.seed % limit;
+};
+
 function GameState(r, c, rockinfo) {
 	this.rows = r;
 	this.cols = c;
@@ -113,6 +221,16 @@ function GameState(r, c, rockinfo) {
 		}
 	}
 	this.visibleValid = false;
+	this.cellSize = 48;
+
+	this.ore = 0;
+	this.crystals = 0;
+	this.freeOre = {};
+	this.freeCrystals = {};
+	this.nextOreId = 0;
+	this.nextCrystalId = 0;
+
+	this.random = new Random();
 }
 
 exports.gridDeltas = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [0, 1], [-1, 0], [0, -1]];

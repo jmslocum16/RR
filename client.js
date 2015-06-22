@@ -57,7 +57,6 @@ function handleKeyUp(e) {
 
 
 
-var cellSize = 48;
 var levelWidth;
 var levelHeight;
 var minimapCellWidth = 0;
@@ -180,14 +179,14 @@ function showGameUI(name) {
 			j = Math.floor(minimapOffsetX / minimapCellWidth);
 		} else {
 			// click on main map
-			i = Math.floor((viewportY + evt.offsetY) / cellSize);
-			j = Math.floor((viewportX + evt.offsetX) / cellSize);
+			i = Math.floor((viewportY + evt.offsetY) / gameState.cellSize);
+			j = Math.floor((viewportX + evt.offsetX) / gameState.cellSize);
 		}
 		handleCanvasClick(i, j);
 		
 	});
 	resizeCanvas();
-	centerViewport(startC * cellSize, startR * cellSize);
+	centerViewport(startC * gameState.cellSize, startR * gameState.cellSize);
 }
 
 var viewportX = 0;
@@ -293,6 +292,10 @@ var invisibleStyle = "#000000";
 var emptyStyle = "#FFFFFF";
 var solidStyle = "#666666";
 var drillableStyle = "#AAAAAA";
+
+var oreStyle = "#663300";
+var crystalStyle = "#22BB22";
+
 var needBackgroundUpdate = true;
 
 function renderBackground() {
@@ -317,7 +320,7 @@ function renderBackground() {
 				console.log("weirdass type at " + i + ", " + j + ": " + gameState.grid[i][j].type);
 			}
 			// draw rect
-			mapCtx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+			mapCtx.fillRect(j * gameState.cellSize, i * gameState.cellSize, gameState.cellSize, gameState.cellSize);
 			minimapCtx.fillStyle = mapCtx.fillStyle;
 			minimapCtx.fillRect(j * minimapCellWidth, i * minimapCellHeight, minimapCellWidth, minimapCellHeight);
 		}
@@ -331,6 +334,12 @@ function drawLine(x, y, x2, y2) {
 	ctx.stroke();
 }
 
+function drawCircle(x, y, r) {
+	ctx.beginPath();
+	ctx.arc(x, y, r, 0, 2*Math.PI, false);
+	ctx.fill();
+}
+
 function renderMain() {
 
 	// draw background
@@ -340,6 +349,42 @@ function renderMain() {
 
 	// draw dynamic
 	// TODO
+
+	// draw ore
+	var oreMap = gameState.freeOre;
+	for (var oid in oreMap) {
+		if (oreMap.hasOwnProperty(oid)) {
+			drawOre(oreMap[oid]);
+		}
+	}
+
+	// draw crystals
+	var crystalMap = gameState.freeCrystals;
+	for (var cid in crystalMap) {
+		if (crystalMap.hasOwnProperty(cid)) {
+			drawCrystal(crystalMap[cid]);
+		}
+	}
+}
+
+// TODO don't draw if not in viewport
+
+function drawOre(ore) {
+	ctx.fillStyle = oreStyle;
+	drawCircle(ore.x - viewportX, ore.y - viewportY, 5);
+}
+
+function drawCrystal(crystal) {
+	ctx.fillStyle = crystalStyle;
+	ctx.beginPath();
+	var width = 4;
+	var height = 8;
+	ctx.moveTo(-viewportX + crystal.x, -viewportY + crystal.y + height);
+	ctx.lineTo(-viewportX + crystal.x + width, -viewportY +  crystal.y);
+	ctx.lineTo(-viewportX + crystal.x, -viewportY + crystal.y - height);
+	ctx.lineTo(-viewportX + crystal.x - width, -viewportY + crystal.y);
+	ctx.lineTo(-viewportX + crystal.x, -viewportY + crystal.y + height);
+	ctx.fill();
 }
 
 function viewToMiniX(x) {
@@ -429,8 +474,8 @@ socket.on("joinedgame", function(data) {
 		initVisible();
 		startR = data.start.r;
 		startC = data.start.c;
-		levelWidth = gameState.cols * cellSize;
-		levelHeight = gameState.rows * cellSize;
+		levelWidth = gameState.cols * gameState.cellSize;
+		levelHeight = gameState.rows * gameState.cellSize;
 		redoVisible();
 		hideGamesMenu();
 		showGameUI(data.name);
