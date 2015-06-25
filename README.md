@@ -21,7 +21,7 @@ This is a multiplayer, javascript based game. There will be multiple clients and
 The clients render their local game state each frame in an html5 canvas.
 The server supports multiple games, creating a game, and joining an existing game.
 
-# Code architectuer
+# Code architecture
 server.js: the server code
 
 client.js: the client code that runs in RR.html
@@ -30,7 +30,7 @@ gamestate.js: The game state code that is shared between the client and the serv
 
 levels/: holds all of the level files.
 
-future:
+## Future code
 
 resources/: holds all of the images the game needs to draw.
 
@@ -63,6 +63,7 @@ The game state consists of two parts: local parts and shared parts.
 ### Local Parts
 
 Each player has their own set of rock raiders, vehicles, and buildings, controllable by only them. This also includes each player's individual ore/crystal total, and the part of the map that is visible to them.
+(currently, there is only a global crystal/ore total, which will need to change)
 
 ### Shared parts
 
@@ -198,7 +199,7 @@ Each shared update poses its updates in terms of a list of transactions. Each tr
 
 When the server receives a shared update, it goes through the list of transactions and checks all of the preconditions. If any fail, it aborts and does not apply the transaction or echo it to the other players. Otherwise, it applies the postcondition function to the game state, and echoes the update to all other players.
 
-The purpose of this is that it guarantees that any concurrent updates to the shared part of the state happen exactly once, even if the network duplicates a message, but especially when multiple [layers try to update the same state, whether it be drilling the same wall, or rock raiders from two different players trying to pick up the same ore.
+The purpose of this is that it guarantees that any concurrent updates to the shared part of the state happen exactly once, even if the network duplicates a message, but especially when multiple players try to update the same state, whether it be drilling the same wall, or rock raiders from two different players trying to pick up the same ore.
 
 #### Server updating the game state.
 
@@ -214,15 +215,9 @@ Another big part will be giving the rock raiders tasks and managing what they do
 Since the game state code needs to be shared between the client and server side, it is in a node.js module. The syntax is gross, but it's basically a javascript file wrapped in a weird closure.
 The only important thing to know is that if you want something to be visible outside the file, you need to put it on exports, otherwise it can be defined locally.
 
-#### Improvements
+#### Core Improvements
 
-Most of it..
-
-1.	Right now the shared state transactions work but there are no useful ones, just a test one i used when developing it. So like, all of the types of transactions need to be implemented.
-
-2.	None of the server timing stuff is implemented, but that will come later once a lot is happening in game.
-
-3.	The concurrent transaction stuff technically doesn't work.. There is no concurrency control, so even though javascript is single threaded there are still cases in which multiple transactions on the same state can go through at once. This needs to be solved by either locking on the game state when applying each transaction (I don't even know if this is possible though), or having the server put the transactions in a queue instead of instantly processing them, and then having processing them in the queue one at a time in a separate thread, which would hurt performance.
+1.	None of the server timing stuff is implemented, but that will come later once a lot is happening in game.
 
 ## Networking
 
@@ -305,17 +300,14 @@ other stuff, like win conditions, etc...
 2.	Develop procedural generation of levels (a lot of games do this now, it should be feasible and cool).
 
 ## Client rendering
-Currently the client draws the entire map, as it magically happens to fit the size of the html5 canvas.
-It will require a viewport, where it draws a certain section of the map. It will need controls to be able to move the viewport.
+Currently the client draws a viewport within the map, which is controlled by the arrow keys and visible in the minimap.
 A minimap would also be nice, which would probably be drawn in a separate canvas to the side.
 
 Right now there is just a mapping from rock type to color, but eventually there will be multiple image textures for each type of rock. These resources will need to be loaded before the game can begin, will need to look tiled, and will need to be drawn with a texture, which will be part of the client-side rock state.
 Everything else (ore, crystals, rock raiders, buildings) is drawn over the rocks.
 
 ### Improvements
-There are easy optimizations I have done for similar 2d games with a certain visible area.
-Basically you have a hidden canvas you draw the background part to, then instead of drawing every rock texture every frame, you draw it once to the hidden canvas once when the background changes, and then every frame just copy the pixels from the background image to the main canvas.
-Thus, we would only have to re-render the background image whenever any rock state is changed, which would be way less than every frame.
+Currently the client has a separate canvas for the rocks, and only updates that when a rock is destroyed/rubble is changed. (could optimize rubble + crystals by drawing yet another intermediate canvas, currently crystals + ore are dynamic), and then dynamic objects such as rock raiders are drawn over it.
 
 ## User Input
 TODO GUI, mouse and keyboard controls
@@ -328,13 +320,8 @@ Need to figure out how this fits into the game state.
 Right now the very core functionality is implemented. The networking with joining/creating games, loading the basic state from a file on create, transactions, both server and client processing updates, and client rendering the game state to its canvas. No updates occur to the game state besides the initial state.
 
 #Roadmap forward
-Since right now the client just displays a grid of rocks, the logical next large step seems to be to get transactions working on destroying rocks and making the client update its visible area.
-The next version I envision is still in a static viewport, the user clicks on the map. When they click on a drillable rock, the client sends an update to the server to instantly destroy that rock. The server should process the update and echo it to all of the clients, who should update their visible parts of the map. Once that is done, the real work will begin.
-
 The state also needs to be more well defined. The interactions of rock raiders need to be better defined, and buildings need to be entirely defined.
-Once that happens, I the next goal should be.
-1.	Dynamic viewport over whole map
-2.	Able to select rock raiders and move them around
+Once that happens, I the next goal should being ble to select rock raiders and moving them around
 This will require a lot of work on the server to make rock raider's tasks and pathing work, and work on the client to draw the rock raiders on their path properly.
 
 The next step seems to be combining the last two and making rock raiders able to move around, and drill walls dynamically. This will require implementing the server timing system, client input capturing, and some of the grid transactions.
