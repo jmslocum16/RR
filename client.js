@@ -349,7 +349,7 @@ function renderMain() {
 	var drawY = Math.floor(viewportY);
         var drawWidth = Math.min(canvas.width, mapCanvas.width - drawX);
 	var drawHeight = Math.min(canvas.height, mapCanvas.height - drawY);
-	ctx.drawImage(mapCanvas, drawX, drawY, drawWidth, drawHeight, 0, 0, canvas.width, canvas.height);
+	ctx.drawImage(mapCanvas, drawX, drawY, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight);
 
 	// draw dynamic
 	// TODO
