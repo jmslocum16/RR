@@ -345,7 +345,11 @@ function renderMain() {
 	// draw background
 	ctx.fillStyle = invisibleStyle;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
-	ctx.drawImage(mapCanvas, Math.floor(viewportX), Math.floor(viewportY), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+	var drawX = Math.floor(viewportX);
+	var drawY = Math.floor(viewportY);
+        var drawWidth = Math.min(canvas.width, mapCanvas.width - drawX);
+	var drawHeight = Math.min(canvas.height, mapCanvas.height - drawY);
+	ctx.drawImage(mapCanvas, drawX, drawY, drawWidth, drawHeight, 0, 0, canvas.width, canvas.height);
 
 	// draw dynamic
 	// TODO
