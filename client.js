@@ -146,6 +146,7 @@ function handleCanvasClick(i, j) {
 	if (i < 0  || j < 0 || i >= gameState.rows || j >= gameState.cols) {
 		return;
 	}
+
 	var oldRockType = gameState.grid[i][j].type;
 	if (!visible[i][j] || oldRockType == 0 || oldRockType == 1) {
 		return;
@@ -169,8 +170,12 @@ function showGameUI(name) {
 	minimapCanvas = document.getElementById("minimapCanvas");
 	minimapCtx = minimapCanvas.getContext("2d");
 	$("#canvasdiv").click(function(evt) {
-		var minimapOffsetX = evt.offsetX - minimapX;
-		var minimapOffsetY = evt.offsetY - minimapY;
+		var rect = canvas.getBoundingClientRect();
+  		var root = document.documentElement;
+		var mouseX = evt.clientX - rect.left - root.scrollLeft;
+ 		var mouseY = evt.clientY - rect.top - root.scrollTop;
+		var minimapOffsetX = mouseX - minimapX;
+		var minimapOffsetY = mouseY - minimapY;
 		var i;
 		var j;
 		if (minimapOffsetX >= 0 && minimapOffsetY >= 0 && minimapOffsetX < minimapCanvas.width && minimapOffsetY < minimapCanvas.height) {
@@ -179,8 +184,8 @@ function showGameUI(name) {
 			j = Math.floor(minimapOffsetX / minimapCellWidth);
 		} else {
 			// click on main map
-			i = Math.floor((viewportY + evt.offsetY) / gameState.cellSize);
-			j = Math.floor((viewportX + evt.offsetX) / gameState.cellSize);
+			i = Math.floor((viewportY + mouseY) / gameState.cellSize);
+			j = Math.floor((viewportX + mouseX) / gameState.cellSize);
 		}
 		handleCanvasClick(i, j);
 		
